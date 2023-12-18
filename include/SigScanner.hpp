@@ -8,6 +8,8 @@
 #include <string>
 #include <Psapi.h>
 
+#include <lazy_importer.hpp>
+
 std::vector<std::string> splitString(const std::string& str, char delim) {
     std::vector<std::string> retVal = {};
     std::istringstream split(str);
@@ -26,24 +28,24 @@ public:
         if (moduleName != nullptr) {
             moduleInfo = getModuleInfo(hProcess, moduleName);
         } else {
-            HMODULE hModule = GetModuleHandle(nullptr);
-            GetModuleInformation(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
+            HMODULE hModule = LI_FN(GetModuleHandle).forwarded_safe()(nullptr);
+            LI_FN(GetModuleInformation).forwarded_safe()(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
         }
 
         auto startAddress = reinterpret_cast<uintptr_t>(moduleInfo.lpBaseOfDll);
         uintptr_t endAddress = startAddress + moduleInfo.SizeOfImage;
 
-        CloseHandle(hProcess);
+        LI_FN(CloseHandle).forwarded_safe()(hProcess);
 
         return scan(nullptr, startAddress, endAddress, pattern, skips);
     }
 
     static MODULEINFO getModuleInfo(HANDLE hProcess, const char* moduleName) {
         MODULEINFO moduleInfo = { nullptr };
-        HMODULE hModule = GetModuleHandle(moduleName);
+        HMODULE hModule = LI_FN(GetModuleHandle).forwarded_safe()(moduleName);
 
         if (hModule != nullptr) {
-            GetModuleInformation(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
+            LI_FN(GetModuleInformation).forwarded_safe()(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
         }
 
         return moduleInfo;
@@ -51,23 +53,23 @@ public:
 
 private:
     static HANDLE getProcessHandle(const char* processName) {
-        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        HANDLE hSnapshot = LI_FN(CreateToolhelp32Snapshot).forwarded_safe()(TH32CS_SNAPPROCESS, 0);
         HANDLE hProcess = nullptr;
 
         if (hSnapshot != INVALID_HANDLE_VALUE) {
             PROCESSENTRY32 pe32;
             pe32.dwSize = sizeof(PROCESSENTRY32);
 
-            if (Process32First(hSnapshot, &pe32)) {
+            if (LI_FN(Process32First).forwarded_safe()(hSnapshot, &pe32)) {
                 do {
                     if (std::string(pe32.szExeFile) == processName) {
-                        hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+                        hProcess = LI_FN(OpenProcess).forwarded_safe()(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
                         break;
                     }
-                } while (Process32Next(hSnapshot, &pe32));
+                } while (LI_FN(Process32Next).forwarded_safe()(hSnapshot, &pe32));
             }
 
-            CloseHandle(hSnapshot);
+            LI_FN(CloseHandle).forwarded_safe()(hSnapshot);
         }
 
         return hProcess;
