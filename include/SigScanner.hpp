@@ -75,34 +75,29 @@ private:
 
     static uintptr_t scan(HANDLE hProcess, uintptr_t start, uintptr_t end, const std::string& pattern, int skips) {
         int skipsUsed = skips;
-        std::vector<std::string> strbytes = splitString(pattern, ' ');
+        std::vector<std::string> vector = splitString(pattern, ' ');
         std::vector<int> signature = {};
 
-        for (unsigned int i = 0; i < strbytes.size(); i++) {
-            std::string str = strbytes[i];
-
+        for (const auto& str : vector) {
             if (str == "??" || str == "?") {
                 signature.push_back(-1);
-            }
-            else {
+            } else {
                 signature.push_back((int)(std::stoul(str, nullptr, 16)));
             }
         }
 
-        size_t sigSize = signature.size();
         uintptr_t searchEnd = end - signature.size();
-        size_t j;
-        uintptr_t i = start;
 
-#define BDEREF(x) *((std::byte*)x)
+#define GET_BYTE(x) *((std::byte*)x)
 
-        for (i = start; i < searchEnd; i++) {
-            j = 0;
+        for (auto i = start; i < searchEnd; i++) {
+            size_t j = 0;
+
             for (; j < signature.size(); j++) {
                 if (i + j >= searchEnd)
                     return NULL;
 
-                if (signature[j] != -1 && (int)BDEREF((i + j)) != signature[j])
+                if (signature[j] != -1 && (int)GET_BYTE((i + j)) != signature[j])
                     break;
             }
 
@@ -110,12 +105,13 @@ private:
                 if (skipsUsed == 0) {
                     return i;
                 }
+
                 skipsUsed--;
             }
         }
 
         return 0;
     }
-#undef BDEREF
+#undef GET_BYTE
 };
 

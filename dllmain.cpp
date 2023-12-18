@@ -1,5 +1,4 @@
 #include <windows.h>
-#include <Psapi.h>
 #include <cstddef>
 
 #include <xorstr.hpp>
