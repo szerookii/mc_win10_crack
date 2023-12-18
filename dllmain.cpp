@@ -5,80 +5,21 @@
 #include <xorstr.hpp>
 #include <lazy_importer.hpp>
 #include <CallStack_Spoofer.h>
+#include <SigScanner.hpp>
 
 #define WINVER 0x0A00
 #define _WIN32_WINNT 0x0A00
 
-#define INRANGE(x, a, b) (x >= a && x <= b)
-#define GET_BYTE(x) (GET_BITS(x[0]) << 4 | GET_BITS(x[1]))
-#define GET_BITS(x)                                                            \
-  (INRANGE((x & (~0x20)), 'A', 'F') ? ((x & (~0x20)) - 'A' + 0xa)              \
-                                    : (INRANGE(x, '0', '9') ? x - '0' : 0))
-
-auto findSig(const char* szSignature) -> uintptr_t {
-    SPOOF_FUNC;
-
-    const char* pattern = szSignature;
-    uintptr_t firstMatch = 0;
-
-    static const auto rangeStart = (uintptr_t) LI_FN(GetModuleHandleA).forwarded_safe()("Minecraft.Windows.exe");
-    static MODULEINFO miModInfo;
-    static bool init = false;
-
-    if (!init) {
-        init = true;
-        LI_FN(GetModuleInformation).forwarded_safe()(LI_FN(GetCurrentProcess).forwarded_safe()(), (HMODULE) rangeStart, &miModInfo, sizeof(MODULEINFO));
-    }
-
-    static const uintptr_t rangeEnd = rangeStart + miModInfo.SizeOfImage;
-
-    BYTE patByte = GET_BYTE(pattern);
-    const char* oldPat = pattern;
-
-    for (uintptr_t pCur = rangeStart; pCur < rangeEnd; pCur++) {
-        if (!*pattern)
-            return firstMatch;
-
-        while (*(PBYTE) pattern == ' ')
-            pattern++;
-
-        if (!*pattern)
-            return firstMatch;
-
-        if (oldPat != pattern) {
-            oldPat = pattern;
-            if (*(PBYTE) pattern != '\?')
-                patByte = GET_BYTE(pattern);
-        }
-
-        if (*(PBYTE) pattern == '\?' || *(BYTE *) pCur == patByte) {
-            if (!firstMatch)
-                firstMatch = pCur;
-
-            if (!pattern[2] || !pattern[1])
-                return firstMatch;
-
-            pattern += 2;
-        } else {
-            pattern = szSignature;
-            firstMatch = 0;
-        }
-    }
-
-    return 0;
-}
-
-
 auto inject(HMODULE hModule) -> void {
     SPOOF_FUNC;
 
-    LI_FN(OutputDebugStringA).forwarded_safe()(xorstr_("Searching for offsets..."));
+    LI_FN(OutputDebugStringA).forwarded_safe()(xorstr_("Searching for offset..."));
 
-    auto offset = findSig(xorstr_("B0 01 48 8B 4C 24 40 48 33 CC E8 ? ? ? ? 48 8B 5C 24 68 48 8B 74 24 70 48 83 C4 50 5F C3 48 8B 83 60 01 00 00"));
+    auto offset = SigScanner::scanMemoryPattern(xorstr_("Minecraft.Windows.exe"), xorstr_("B0 01 48 8B 4C 24 40 48 33 CC E8 ? ? ? ? 48 8B 5C 24 68 48 8B 74 24 70 48 83 C4 50 5F C3 48 8B 83 60 01 00 00"));
 
     if(!offset) {
         LI_FN(OutputDebugStringA).forwarded_safe()(xorstr_("Unable to find offset!"));
-        return;
+        goto end;
     }
 
     LI_FN(OutputDebugStringA).forwarded_safe()(xorstr_("Found offset!"));
@@ -92,6 +33,7 @@ auto inject(HMODULE hModule) -> void {
 
     LI_FN(OutputDebugStringA).forwarded_safe()(xorstr_("Successfully patched offset!"));
 
+    end:
     LI_FN(FreeLibraryAndExitThread).forwarded_safe()(hModule, NULL);
 }
 
