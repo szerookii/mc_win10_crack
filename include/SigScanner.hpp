@@ -9,6 +9,7 @@
 #include <Psapi.h>
 
 #include <lazy_importer.hpp>
+#include <CallStack_Spoofer.h>
 
 std::vector<std::string> splitString(const std::string& str, char delim) {
     std::vector<std::string> retVal = {};
@@ -20,6 +21,8 @@ std::vector<std::string> splitString(const std::string& str, char delim) {
 class SigScanner {
 public:
     static uintptr_t scanMemoryPattern(const char* processName, const std::string& pattern, const char* moduleName = nullptr, int skips = 0x0) {
+        SPOOF_FUNC;
+
         HANDLE hProcess = getProcessHandle(processName);
         if (hProcess == nullptr)
             return 0;
@@ -28,24 +31,26 @@ public:
         if (moduleName != nullptr) {
             moduleInfo = getModuleInfo(hProcess, moduleName);
         } else {
-            HMODULE hModule = LI_FN(GetModuleHandle).forwarded_safe()(nullptr);
-            LI_FN(GetModuleInformation).forwarded_safe()(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
+            HMODULE hModule = SPOOF_CALL(LI_FN(GetModuleHandleA).forwarded_safe())(nullptr);
+            SPOOF_CALL(LI_FN(GetModuleInformation).forwarded_safe())(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
         }
 
         auto startAddress = reinterpret_cast<uintptr_t>(moduleInfo.lpBaseOfDll);
         uintptr_t endAddress = startAddress + moduleInfo.SizeOfImage;
 
-        LI_FN(CloseHandle).forwarded_safe()(hProcess);
+        SPOOF_CALL(LI_FN(CloseHandle).forwarded_safe())(hProcess);
 
         return scan(nullptr, startAddress, endAddress, pattern, skips);
     }
 
     static MODULEINFO getModuleInfo(HANDLE hProcess, const char* moduleName) {
+        SPOOF_FUNC;
+
         MODULEINFO moduleInfo = { nullptr };
-        HMODULE hModule = LI_FN(GetModuleHandle).forwarded_safe()(moduleName);
+        HMODULE hModule = SPOOF_CALL(LI_FN(GetModuleHandleA).forwarded_safe())(moduleName);
 
         if (hModule != nullptr) {
-            LI_FN(GetModuleInformation).forwarded_safe()(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
+            SPOOF_CALL(LI_FN(GetModuleInformation).forwarded_safe())(hProcess, hModule, &moduleInfo, sizeof(moduleInfo));
         }
 
         return moduleInfo;
@@ -53,29 +58,33 @@ public:
 
 private:
     static HANDLE getProcessHandle(const char* processName) {
-        HANDLE hSnapshot = LI_FN(CreateToolhelp32Snapshot).forwarded_safe()(TH32CS_SNAPPROCESS, 0);
+        SPOOF_FUNC;
+
+        HANDLE hSnapshot = SPOOF_CALL(LI_FN(CreateToolhelp32Snapshot).forwarded_safe())(TH32CS_SNAPPROCESS, 0);
         HANDLE hProcess = nullptr;
 
         if (hSnapshot != INVALID_HANDLE_VALUE) {
             PROCESSENTRY32 pe32;
             pe32.dwSize = sizeof(PROCESSENTRY32);
 
-            if (LI_FN(Process32First).forwarded_safe()(hSnapshot, &pe32)) {
+            if (SPOOF_CALL(LI_FN(Process32First).forwarded_safe())(hSnapshot, &pe32)) {
                 do {
                     if (std::string(pe32.szExeFile) == processName) {
-                        hProcess = LI_FN(OpenProcess).forwarded_safe()(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+                        hProcess = SPOOF_CALL(LI_FN(OpenProcess).forwarded_safe())(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
                         break;
                     }
-                } while (LI_FN(Process32Next).forwarded_safe()(hSnapshot, &pe32));
+                } while (SPOOF_CALL(LI_FN(Process32Next).forwarded_safe())(hSnapshot, &pe32));
             }
 
-            LI_FN(CloseHandle).forwarded_safe()(hSnapshot);
+            SPOOF_CALL(LI_FN(CloseHandle).forwarded_safe())(hSnapshot);
         }
 
         return hProcess;
     }
 
     static uintptr_t scan(HANDLE hProcess, uintptr_t start, uintptr_t end, const std::string& pattern, int skips) {
+        SPOOF_FUNC;
+
         int skipsUsed = skips;
         std::vector<std::string> vector = splitString(pattern, ' ');
         std::vector<int> signature = {};
