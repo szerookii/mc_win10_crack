@@ -6,9 +6,6 @@
 #include <CallStack_Spoofer.h>
 #include <SigScanner.hpp>
 
-#define WINVER 0x0A00
-#define _WIN32_WINNT 0x0A00
-
 auto inject(HMODULE hModule) -> void {
     SPOOF_FUNC;
 
