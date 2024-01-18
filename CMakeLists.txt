@@ -4,7 +4,7 @@ project(mc_win10_crack)
 
 set(CMAKE_CXX_STANDARD 20)
 
-
+add_definitions(-D_WIN32_WINNT=0x0501 -DNTDDI_WIN7 -DWINVER=0x0501)
 
 file(GLOB_RECURSE LIB_SRC_FILES include/*.cpp)
 
