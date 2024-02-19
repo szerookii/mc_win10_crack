@@ -7,11 +7,12 @@
 #include <string>
 #include <Psapi.h>
 
+#include <obfuscate.hpp>
 #include <lazy_importer.hpp>
 
 class SigScanner {
 public:
-    static uintptr_t scanMemoryPattern(const char* processName, const std::string& pattern, const char* moduleName = nullptr, int skips = 0x0) {
+    static uintptr_t scanMemoryPattern(const char* processName, const char* pattern, const char* moduleName = nullptr, int skips = 0x0) {
         HANDLE hSnapshot = LI_FN(CreateToolhelp32Snapshot).forwarded_safe()(TH32CS_SNAPPROCESS, 0);
         HANDLE hProcess = nullptr;
         uintptr_t resultAddress = 0;
@@ -50,7 +51,7 @@ public:
             std::vector<int> signature = {};
 
             for (std::string each; std::getline(split, each, ' ');) {
-                if (each == "??" || each == "?") {
+                if (each == std::string(AY_OBFUSCATE("??")) || each == std::string(AY_OBFUSCATE("?"))) {
                     signature.push_back(-1);
                 } else {
                     signature.push_back((int)(std::stoul(each, nullptr, 16)));

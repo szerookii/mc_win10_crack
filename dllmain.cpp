@@ -1,44 +1,38 @@
 #include <windows.h>
 #include <cstddef>
 
-#include <xorstr.hpp>
+#include <obfuscate.hpp>
 #include <lazy_importer.hpp>
-#include <CallStack_Spoofer.h>
 #include <SigScanner.hpp>
 
 auto inject(HMODULE hModule) -> void {
-    SPOOF_FUNC;
+    LI_FN(OutputDebugStringA).forwarded_safe()(AY_OBFUSCATE("Searching for offset..."));
 
-    SPOOF_CALL(LI_FN(OutputDebugStringA).forwarded_safe())(xorstr_("Searching for offset..."));
-
-    auto offset = SigScanner::scanMemoryPattern(xorstr_("Minecraft.Windows.exe"), xorstr_("B0 01 48 8B 4C 24 40 48 33 CC E8 ? ? ? ? 48 8B 5C 24 68 48 8B 74 24 70 48 83 C4 50 5F C3 48 8B 83 60 01 00 00"));
+    auto offset = SigScanner::scanMemoryPattern(AY_OBFUSCATE("Minecraft.Windows.exe"), AY_OBFUSCATE("B0 01 48 8B 4C 24 40 48 33 CC E8 ? ? ? ? 48 8B 5C 24 68 48 8B 74 24 70 48 83 C4 50 5F C3 48 8B 83 60 01 00 00"));
 
     if (!offset) {
-        SPOOF_CALL(LI_FN(OutputDebugStringA).forwarded_safe())(xorstr_("Unable to find offset!"));
+        LI_FN(OutputDebugStringA).forwarded_safe()(AY_OBFUSCATE("Unable to find offset!"));
         goto end;
     }
 
-    SPOOF_CALL(LI_FN(OutputDebugStringA).forwarded_safe())(xorstr_("Found offset!"));
+    LI_FN(OutputDebugStringA).forwarded_safe()(AY_OBFUSCATE("Found offset!"));
 
     DWORD oldProtect;
-    SPOOF_CALL(LI_FN(VirtualProtect).forwarded_safe())(reinterpret_cast<void *>(offset), 0x2, PAGE_EXECUTE_READWRITE, &oldProtect);
+    LI_FN(VirtualProtect).forwarded_safe()(reinterpret_cast<void*>(offset), 0x2, PAGE_EXECUTE_READWRITE, &oldProtect);
 
-    *reinterpret_cast<std::byte *>(offset + 0x1) = static_cast<std::byte>(0x0);
+    *reinterpret_cast<std::byte*>(offset + 0x1) = static_cast<std::byte>(0x0);
 
-    SPOOF_CALL(LI_FN(VirtualProtect).forwarded_safe())(reinterpret_cast<void *>(offset), 0x2, oldProtect, &oldProtect);
+    LI_FN(VirtualProtect).forwarded_safe()(reinterpret_cast<void*>(offset), 0x2, oldProtect, &oldProtect);
 
-    SPOOF_CALL(LI_FN(OutputDebugStringA).forwarded_safe())(xorstr_("Successfully patched offset!"));
+   LI_FN(OutputDebugStringA).forwarded_safe()(AY_OBFUSCATE("Successfully patched offset!"));
 
     end:
-    SPOOF_CALL(LI_FN(FreeLibraryAndExitThread).forwarded_safe())(hModule, NULL);
+    LI_FN(FreeLibraryAndExitThread).forwarded_safe()(hModule, 0);
 }
 
 auto APIENTRY DllMain(HMODULE hModule, const DWORD ul_reason_for_call, LPVOID lpReserved) -> BOOL {
-    SPOOF_FUNC;
-
-    if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
-        SPOOF_CALL(LI_FN(CreateThread).forwarded_safe())(nullptr, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(inject), hModule,NULL, nullptr);
-    }
+    if (ul_reason_for_call == DLL_PROCESS_ATTACH)
+        LI_FN(CreateThread).forwarded_safe()(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(inject), hModule, 0, nullptr);
 
     return TRUE;
 }
